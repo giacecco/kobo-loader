@@ -3,6 +3,21 @@ import { join } from "path";
 import { $ } from "bun";
 import type { VideoMeta } from "./youtube";
 
+async function downloadThumbnail(videoId: string, destPath: string): Promise<boolean> {
+  for (const quality of ["maxresdefault", "hqdefault"]) {
+    try {
+      const res = await fetch(`https://img.youtube.com/vi/${videoId}/${quality}.jpg`);
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      writeFileSync(destPath, Buffer.from(buf));
+      return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
 /**
  * Generate a Kobo-optimised EPUB from a transcript.
  * Builds the EPUB manually — EPUB is just a ZIP with XML/HTML files inside.
@@ -26,14 +41,15 @@ export async function generateEpub(
 
   const bookId = generateUuid();
   const bodyHtml = transcriptToHtml(transcript);
+  const hasCoverImage = await downloadThumbnail(video.id, join(oebpsDir, "cover.jpg"));
 
   try {
     // mimetype must be first, stored uncompressed
     writeFileSync(join(workDir, "mimetype"), "application/epub+zip");
     writeFileSync(join(metaDir, "container.xml"), containerXml());
-    writeFileSync(join(oebpsDir, "content.opf"), contentOpf(video, bookId));
+    writeFileSync(join(oebpsDir, "content.opf"), contentOpf(video, bookId, hasCoverImage));
     writeFileSync(join(oebpsDir, "toc.ncx"), tocNcx(video, bookId));
-    writeFileSync(join(oebpsDir, "cover.xhtml"), coverXhtml(video));
+    writeFileSync(join(oebpsDir, "cover.xhtml"), coverXhtml(video, hasCoverImage));
     writeFileSync(join(oebpsDir, "chapter1.xhtml"), chapterXhtml(video, bodyHtml));
 
     // Build EPUB (ZIP with mimetype first, uncompressed)
@@ -52,7 +68,11 @@ export async function generateEpub(
   return outputPath;
 }
 
-function coverXhtml(video: VideoMeta): string {
+function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
+  const thumbnailHtml = hasCoverImage
+    ? `<img src="cover.jpg" alt="${escapeXml(video.title)}" class="thumbnail"/>\n    `
+    : "";
+  const topMargin = hasCoverImage ? "1.5em" : "3em";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -65,9 +85,16 @@ function coverXhtml(video: VideoMeta): string {
       padding: 0.5em;
       color: #1a1a1a;
     }
+    .thumbnail {
+      width: 100%;
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto 1em;
+    }
     .title-page {
       text-align: center;
-      margin: 3em 0 2.5em;
+      margin: ${topMargin} 0 2.5em;
     }
     .title-page h1 {
       font-size: 1.6em;
@@ -87,7 +114,7 @@ function coverXhtml(video: VideoMeta): string {
   </style>
 </head>
 <body>
-  <div class="title-page">
+  ${thumbnailHtml}<div class="title-page">
     <h1>${escapeXml(video.title)}</h1>
     <div class="divider"></div>
     <div class="meta">
@@ -139,7 +166,13 @@ function containerXml(): string {
 </container>`;
 }
 
-function contentOpf(video: VideoMeta, bookId: string): string {
+function contentOpf(video: VideoMeta, bookId: string, hasCoverImage: boolean): string {
+  const coverImageMeta = hasCoverImage
+    ? `\n    <meta name="cover" content="cover-img"/>`
+    : "";
+  const coverImageItem = hasCoverImage
+    ? `\n    <item id="cover-img" href="cover.jpg" media-type="image/jpeg"/>`
+    : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -149,11 +182,11 @@ function contentOpf(video: VideoMeta, bookId: string): string {
     <dc:language>en</dc:language>
     <dc:identifier id="bookid" opf:scheme="UUID">urn:uuid:${bookId}</dc:identifier>
     <dc:subject>${escapeXml(video.channel)}</dc:subject>
-    <meta name="calibre:series" content="${escapeXml(video.channel)}"/>
+    <meta name="calibre:series" content="${escapeXml(video.channel)}"/>${coverImageMeta}
   </metadata>
   <manifest>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
-    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>
+    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>${coverImageItem}
     <item id="chapter1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
   </manifest>
   <spine toc="ncx">

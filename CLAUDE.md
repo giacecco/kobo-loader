@@ -16,7 +16,7 @@
 
 ```bash
 bun run index.ts          # Full pipeline
-RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify bun run index.ts
+RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify CLAUDE_PATH=~/.claude/local/claude bun run index.ts
 ```
 
 ## Architecture
@@ -25,6 +25,7 @@ RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify bun run index.ts
 index.ts          — orchestrator: config, state, pipeline loop
 lib/youtube.ts    — yt-dlp wrapper (--flat-playlist, --write-auto-subs)
 lib/parse-srt.ts  — SRT → clean paragraph text
+lib/prose.ts      — claude -p prose rewriter (falls back to raw transcript on error)
 lib/epub.ts       — manual EPUB generation (ZIP + XHTML + OPF + NCX)
 lib/drive.ts      — rclone upload wrapper
 ```

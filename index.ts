@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync,
 import { join } from "path";
 import { listRecentVideos, downloadCaptions } from "./lib/youtube";
 import { parseSrt } from "./lib/parse-srt";
+import { rewriteAsProse } from "./lib/prose";
 import { generateEpub } from "./lib/epub";
 import { uploadToDrive, deleteOldDriveFiles } from "./lib/drive";
 import { $ } from "bun";
@@ -120,20 +121,29 @@ async function main(): Promise<void> {
 
       // Step 2: Parse SRT
       const srtContent = readFileSync(srtPath, "utf-8");
-      const transcript = parseSrt(srtContent);
+      const rawTranscript = parseSrt(srtContent);
 
-      // Step 3: Generate EPUB
+      // Step 3: Rewrite as prose
+      let transcript = rawTranscript;
+      try {
+        transcript = await rewriteAsProse(video.title, video.channel, rawTranscript);
+        console.log(`[kobo-loader] Prose rewrite complete for "${video.title}"`);
+      } catch (err) {
+        console.warn(`[kobo-loader] Prose rewrite failed, using raw transcript: ${err}`);
+      }
+
+      // Step 4: Generate EPUB
       const epubPath = join(TEMP_DIR, `${video.id}.epub`);
       await generateEpub(video, transcript, epubPath);
 
-      // Step 4: Convert to KEPUB for better Kobo experience
+      // Step 5: Convert to KEPUB for better Kobo experience
       let uploadPath = epubPath;
       const kepubPath = await convertToKepub(epubPath);
       if (kepubPath) {
         uploadPath = kepubPath;
       }
 
-      // Step 5: Upload to Drive. Only mark as processed on success.
+      // Step 6: Upload to Drive. Only mark as processed on success.
       const MB = 1024 * 1024;
       const { size } = statSync(uploadPath);
       if (size > 25 * MB) {
