@@ -6,6 +6,7 @@ export interface VideoMeta {
   title: string;
   url: string;
   channel: string;
+  uploadDate?: string; // YYYYMMDD from yt-dlp, absent on some flat playlist entries
 }
 
 interface YtDlpEntry {
@@ -13,6 +14,7 @@ interface YtDlpEntry {
   title: string;
   webpage_url: string;
   playlist_channel: string;
+  upload_date?: string;
 }
 
 /**
@@ -36,6 +38,7 @@ export async function listRecentVideos(
         title: entry.title,
         url: entry.webpage_url,
         channel: entry.playlist_channel,
+        uploadDate: entry.upload_date,
       };
     });
   } catch (err) {

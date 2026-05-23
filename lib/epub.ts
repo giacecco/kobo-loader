@@ -119,6 +119,7 @@ function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
     <div class="divider"></div>
     <div class="meta">
       <p>${escapeXml(video.channel)}</p>
+      ${video.uploadDate ? `<p>${formatUploadDate(video.uploadDate)}</p>` : ""}
       <p>Transcript via YouTube auto-captions</p>
     </div>
     <div class="divider"></div>
@@ -230,6 +231,14 @@ function transcriptToHtml(text: string): string {
     .filter((p) => p.length > 0)
     .map((p) => `<p>${escapeXml(p)}</p>`)
     .join("\n");
+}
+
+function formatUploadDate(yyyymmdd: string): string {
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const y = yyyymmdd.slice(0, 4);
+  const m = parseInt(yyyymmdd.slice(4, 6), 10) - 1;
+  const d = parseInt(yyyymmdd.slice(6, 8), 10);
+  return `${d} ${months[m]} ${y}`;
 }
 
 function escapeXml(str: string): string {
