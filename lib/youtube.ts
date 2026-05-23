@@ -7,7 +7,6 @@ export interface VideoMeta {
   url: string;
   channel: string;
   uploadDate?: string; // YYYYMMDD from yt-dlp, absent on some flat playlist entries
-  duration?: number;  // seconds; absent on some flat playlist entries
 }
 
 interface YtDlpEntry {
@@ -16,7 +15,6 @@ interface YtDlpEntry {
   webpage_url: string;
   playlist_channel: string;
   upload_date?: string;
-  duration?: number; // seconds; absent on some flat playlist entries
 }
 
 /**
@@ -42,13 +40,11 @@ export async function listRecentVideos(
           url: entry.webpage_url,
           channel: entry.playlist_channel,
           uploadDate: entry.upload_date,
-          duration: entry.duration,
         };
       })
       .filter((v) => {
-        // Skip Shorts (≤ 3 minutes). If duration is absent, include the video.
-        if (v.duration !== undefined && v.duration <= 180) {
-          console.log(`[kobo-loader] Skipping Short: "${v.title}" (${v.duration}s)`);
+        if (v.url.includes("/shorts/")) {
+          console.log(`[kobo-loader] Skipping Short: "${v.title}"`);
           return false;
         }
         return true;
