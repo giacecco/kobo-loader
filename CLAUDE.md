@@ -2,7 +2,7 @@
 
 ## Project
 
-`kobo-loader` — Bun script that fetches YouTube auto-captions, converts to KEPUB, and uploads to Google Drive for Kobo sync.
+`kobo-loader` — Bun script that fetches YouTube auto-captions, rewrites them as prose via `claude -p`, converts to KEPUB, and uploads to Google Drive for Kobo sync.
 
 ## Key constraints (see kobo-pipeline-advice.md for details)
 
@@ -16,7 +16,7 @@
 
 ```bash
 bun run index.ts          # Full pipeline
-RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify CLAUDE_PATH=~/.claude/local/claude bun run index.ts
+RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify CLAUDE_PATH=~/.local/bin/claude bun run index.ts
 ```
 
 ## Architecture
@@ -36,4 +36,4 @@ lib/drive.ts      — rclone upload wrapper
 
 ## Server
 
-`ubuntu1.local`, Ubuntu 24.04. Deploy via scp. rclone at `~/bin/rclone`, kepubify at `~/bin/kepubify`. Cron runs daily at 6am.
+`ubuntu1.local`, Ubuntu 24.04. Deploy via scp. rclone at `~/bin/rclone`, kepubify at `~/bin/kepubify`. Cron runs daily at 4am.
