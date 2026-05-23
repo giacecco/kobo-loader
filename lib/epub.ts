@@ -86,21 +86,22 @@ function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
       color: #1a1a1a;
     }
     .thumbnail {
-      width: 100%;
-      max-width: 100%;
+      width: 75%;
+      max-width: 75%;
       height: auto;
       display: block;
-      margin: 0 auto 1em;
+      margin: 0 0 1em;
     }
     .title-page {
-      text-align: center;
+      text-align: left;
       margin: ${topMargin} 0 2.5em;
     }
     .title-page h1 {
-      font-size: 1.6em;
+      font-size: 1.3em;
       font-weight: normal;
       line-height: 1.3;
       margin-bottom: 0.5em;
+      word-wrap: break-word;
     }
     .title-page .meta {
       font-size: 0.9em;
@@ -109,7 +110,7 @@ function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
     .title-page .divider {
       width: 3em;
       border-top: 1px solid #ccc;
-      margin: 1.2em auto;
+      margin: 1.2em 0;
     }
   </style>
 </head>
