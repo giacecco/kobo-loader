@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, rmSync,
 import { join } from "path";
 import { listRecentVideos, downloadCaptions } from "./lib/youtube";
 import { parseSrt } from "./lib/parse-srt";
-import { rewriteAsProse } from "./lib/prose";
+import { rewriteAsProse, generateSummary } from "./lib/prose";
 import { generateEpub } from "./lib/epub";
 import { uploadToDrive, deleteOldDriveFiles } from "./lib/drive";
 import { $ } from "bun";
@@ -161,9 +161,18 @@ async function main(): Promise<void> {
         console.warn(`[kobo-loader] Prose rewrite failed, using raw transcript: ${err}`);
       }
 
+      // Step 3b: Generate cover summary
+      let summary: string | undefined;
+      try {
+        summary = await generateSummary(video.title, video.channel, transcript);
+        console.log(`[kobo-loader] Summary generated for "${video.title}"`);
+      } catch (err) {
+        console.warn(`[kobo-loader] Summary generation failed, cover will have no summary: ${err}`);
+      }
+
       // Step 4: Generate EPUB
       const epubPath = join(TEMP_DIR, `${video.id}.epub`);
-      await generateEpub(video, transcript, epubPath);
+      await generateEpub(video, transcript, epubPath, summary);
 
       // Step 5: Convert to KEPUB for better Kobo experience
       let uploadPath = epubPath;

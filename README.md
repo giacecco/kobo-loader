@@ -6,8 +6,8 @@ Fetches YouTube auto-captions, uses Claude to rewrite them as readable prose, co
 
 1. Fetches recent videos from configured YouTube channels via yt-dlp
 2. Downloads auto-generated English captions (SRT format)
-3. Rewrites the transcript as polished prose using `claude -p` (Claude Code CLI)
-4. Generates a Kobo-optimised EPUB with thumbnail cover and upload date
+3. Rewrites the transcript as polished prose using `claude -p` (Claude Code CLI) and generates a 2–3 sentence synopsis for the cover page
+4. Generates a Kobo-optimised EPUB with thumbnail cover, upload date, and synopsis
 5. Converts to KEPUB via kepubify for native Kobo reading features
 6. Uploads to a Google Drive folder via rclone
 7. Tracks processed video IDs in `state.json` to avoid duplicates

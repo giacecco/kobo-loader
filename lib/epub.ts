@@ -26,6 +26,7 @@ export async function generateEpub(
   video: VideoMeta,
   transcript: string,
   outputPath: string,
+  summary?: string,
 ): Promise<string> {
   const workDir = outputPath + ".d";
 
@@ -49,7 +50,7 @@ export async function generateEpub(
     writeFileSync(join(metaDir, "container.xml"), containerXml());
     writeFileSync(join(oebpsDir, "content.opf"), contentOpf(video, bookId, hasCoverImage));
     writeFileSync(join(oebpsDir, "toc.ncx"), tocNcx(video, bookId));
-    writeFileSync(join(oebpsDir, "cover.xhtml"), coverXhtml(video, hasCoverImage));
+    writeFileSync(join(oebpsDir, "cover.xhtml"), coverXhtml(video, hasCoverImage, summary));
     writeFileSync(join(oebpsDir, "chapter1.xhtml"), chapterXhtml(video, bodyHtml));
 
     // Build EPUB (ZIP with mimetype first, uncompressed)
@@ -68,11 +69,14 @@ export async function generateEpub(
   return outputPath;
 }
 
-function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
+function coverXhtml(video: VideoMeta, hasCoverImage: boolean, summary?: string): string {
   const thumbnailHtml = hasCoverImage
     ? `<img src="cover.jpg" alt="${escapeXml(video.title)}" class="thumbnail"/>\n    `
     : "";
   const topMargin = hasCoverImage ? "1.5em" : "3em";
+  const summaryHtml = summary
+    ? `\n    <div class="summary"><p>${escapeXml(summary)}</p></div>`
+    : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -112,6 +116,16 @@ function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
       border-top: 1px solid #ccc;
       margin: 1.2em 0;
     }
+    .title-page .summary {
+      font-size: 0.95em;
+      font-style: italic;
+      line-height: 1.5;
+      color: #333;
+      margin-top: 0.5em;
+    }
+    .title-page .summary p {
+      margin: 0;
+    }
   </style>
 </head>
 <body>
@@ -123,7 +137,7 @@ function coverXhtml(video: VideoMeta, hasCoverImage: boolean): string {
       ${video.uploadDate ? `<p>${formatUploadDate(video.uploadDate)}</p>` : ""}
       <p>Transcript via YouTube auto-captions</p>
     </div>
-    <div class="divider"></div>
+    <div class="divider"></div>${summaryHtml}
   </div>
 </body>
 </html>`;
