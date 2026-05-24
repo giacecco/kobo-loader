@@ -23,6 +23,18 @@ Fetches YouTube auto-captions, uses Claude to rewrite them as readable prose, co
 - [kepubify](https://pgaskin.net/kepubify/) — optional, falls back to plain EPUB
 - [Claude Code CLI](https://claude.ai/code) — logged in with an active subscription
 
+### yt-dlp rate limiting
+
+YouTube will block aggressive scrapers. Configure yt-dlp to pace itself by adding the following to `~/.config/yt-dlp/config` on every machine that runs this script:
+
+```
+--sleep-requests 5
+--min-sleep-interval 30
+--max-sleep-interval 90
+--retry-sleep fragment:300
+--limit-rate 0.1M
+```
+
 ### Configuration
 
 Copy `config.example.json` to `config.json` and edit:
@@ -31,13 +43,11 @@ Copy `config.example.json` to `config.json` and edit:
 {
   "channels": [
     "https://www.youtube.com/@ExampleChannel"
-  ],
-  "lookbackDays": 7
+  ]
 }
 ```
 
 - `channels` — YouTube channel URLs or @handles
-- `lookbackDays` — how many days back to check (fetches 2× this many videos per channel)
 
 ### rclone setup
 
@@ -50,8 +60,10 @@ The script writes to `kobo-drive:kobocloud/`.
 ### Running
 
 ```bash
-bun run index.ts
+bun run index.ts --last 7
 ```
+
+`--last N` sets the lookback window in days (default: 7). The script fetches the 2× most recent videos per channel and filters by what's already in `state.json`.
 
 Optional environment variables to override binary paths:
 
@@ -59,15 +71,15 @@ Optional environment variables to override binary paths:
 RCLONE_PATH=~/bin/rclone \
 KEPUBIFY_PATH=~/bin/kepubify \
 CLAUDE_PATH=~/.local/bin/claude \
-bun run index.ts
+bun run index.ts --last 7
 ```
 
 ### Cron example
 
 ```
-0 4 * * * RCLONE_PATH=/home/user/bin/rclone KEPUBIFY_PATH=/home/user/bin/kepubify CLAUDE_PATH=/home/user/.local/bin/claude /home/user/.bun/bin/bun run /home/user/kobo-loader/index.ts >> /home/user/kobo-loader/kobo-loader.log 2>&1
+0 4 * * * RCLONE_PATH=/home/user/bin/rclone KEPUBIFY_PATH=/home/user/bin/kepubify CLAUDE_PATH=/home/user/.local/bin/claude /home/user/.bun/bin/bun run /home/user/kobo-loader/index.ts --last 7 >> /home/user/kobo-loader/kobo-loader.log 2>&1
 ```
 
 ## Deduplication
 
-Processed video IDs are stored in `state.json`. Only new videos are processed each run. To reprocess everything, delete the file or set it to `[]`.
+Processed video IDs are stored in `state.json` with a `processedAt` date. Entries older than `--last N` days are pruned on each run, keeping the file bounded. To reprocess everything, delete the file or set it to `[]`.

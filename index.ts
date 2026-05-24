@@ -9,7 +9,11 @@ import { $ } from "bun";
 
 interface Config {
   channels: string[];
-  lookbackDays: number;
+}
+
+interface StateEntry {
+  id: string;
+  processedAt: string; // YYYY-MM-DD
 }
 
 const CONFIG_PATH = join(import.meta.dir, "config.json");
@@ -26,20 +30,43 @@ function loadConfig(): Config {
   return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
 }
 
-function loadState(): string[] {
+function parseLast(defaultDays: number): number {
+  const args = Bun.argv.slice(2);
+  const idx = args.findIndex(a => a === "--last");
+  if (idx !== -1 && args[idx + 1]) {
+    const n = parseInt(args[idx + 1], 10);
+    if (!isNaN(n) && n > 0) return n;
+  }
+  return defaultDays;
+}
+
+function loadState(): StateEntry[] {
   if (!existsSync(STATE_PATH)) {
     writeFileSync(STATE_PATH, "[]");
     return [];
   }
   try {
-    return JSON.parse(readFileSync(STATE_PATH, "utf-8"));
+    const data = JSON.parse(readFileSync(STATE_PATH, "utf-8"));
+    if (Array.isArray(data) && data.length > 0 && typeof data[0] === "string") {
+      // Migrate old format (bare IDs) — mark all with yesterday's date
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const processedAt = yesterday.toISOString().slice(0, 10);
+      console.log(`[kobo-loader] Migrating state.json to new format (${data.length} entries → processedAt ${processedAt})`);
+      return (data as string[]).map(id => ({ id, processedAt }));
+    }
+    return data as StateEntry[];
   } catch {
     return [];
   }
 }
 
-function saveState(ids: string[]): void {
-  writeFileSync(STATE_PATH, JSON.stringify(ids, null, 2));
+function saveState(entries: StateEntry[], lookbackDays: number): void {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - lookbackDays);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const pruned = entries.filter(e => e.processedAt >= cutoffStr);
+  writeFileSync(STATE_PATH, JSON.stringify(pruned, null, 2));
 }
 
 /**
@@ -78,14 +105,17 @@ async function main(): Promise<void> {
   console.log(`[kobo-loader] Starting at ${new Date().toISOString()}`);
 
   const config = loadConfig();
-  const processed = new Set(loadState());
+  const lookbackDays = parseLast(7);
+  const state = loadState();
+  const processed = new Set(state.map(e => e.id));
+  const today = new Date().toISOString().slice(0, 10);
 
   // Flat playlists don't include upload dates, so we fetch a sliding window
   // of recent videos and rely on state.json for deduplication.
-  const maxVideos = config.lookbackDays * 2;
+  const maxVideos = lookbackDays * 2;
 
   console.log(
-    `[kobo-loader] Channels: ${config.channels.length}, fetching latest ${maxVideos} per channel, already processed: ${processed.size}`,
+    `[kobo-loader] Channels: ${config.channels.length}, lookback: ${lookbackDays} days, fetching latest ${maxVideos} per channel, already processed: ${processed.size}`,
   );
 
   // Ensure temp directory
@@ -93,7 +123,6 @@ async function main(): Promise<void> {
     mkdirSync(TEMP_DIR, { recursive: true });
   }
 
-  const newlyProcessed: string[] = [];
   let totalUploaded = 0;
 
   for (const channelUrl of config.channels) {
@@ -164,7 +193,8 @@ async function main(): Promise<void> {
 
       if (uploadResult) {
         console.log(`[kobo-loader] Uploaded: ${filename}`);
-        newlyProcessed.push(video.id);
+        state.push({ id: video.id, processedAt: today });
+        processed.add(video.id);
         totalUploaded++;
       } else {
         console.error(
@@ -179,17 +209,14 @@ async function main(): Promise<void> {
     }
   }
 
-  // Persist state
-  if (newlyProcessed.length > 0) {
-    const allProcessed = [...processed, ...newlyProcessed];
-    saveState(allProcessed);
-    console.log(
-      `[kobo-loader] Saved ${newlyProcessed.length} new video IDs to state`,
-    );
+  // Persist state (always save to ensure pruning runs even if nothing new)
+  saveState(state, lookbackDays);
+  if (totalUploaded > 0) {
+    console.log(`[kobo-loader] Saved ${totalUploaded} new video IDs to state`);
   }
 
   // Delete Drive files older than lookbackDays
-  await deleteOldDriveFiles(config.lookbackDays);
+  await deleteOldDriveFiles(lookbackDays);
 
   // Clean up temp dir
   try { rmSync(TEMP_DIR, { recursive: true, force: true }); } catch { /* ok */ }

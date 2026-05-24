@@ -15,8 +15,8 @@
 ## Commands
 
 ```bash
-bun run index.ts          # Full pipeline
-RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify CLAUDE_PATH=~/.local/bin/claude bun run index.ts
+bun run index.ts --last 7          # Full pipeline (--last N defaults to 7)
+RCLONE_PATH=~/bin/rclone KEPUBIFY_PATH=~/bin/kepubify CLAUDE_PATH=~/.local/bin/claude bun run index.ts --last 7
 ```
 
 ## Architecture
@@ -32,8 +32,10 @@ lib/drive.ts      — rclone upload wrapper
 
 ## State
 
-`state.json` — array of processed YouTube video IDs. Flat playlists don't include upload dates, so we fetch `lookbackDays * 2` videos per channel and filter against state.
+`state.json` — array of `{ id, processedAt }` objects. Entries older than `--last N` days are pruned on each run. Flat playlists don't include upload dates, so we fetch `N * 2` videos per channel and rely on state for deduplication.
 
 ## Server
 
-`ubuntu1.local`, Ubuntu 24.04. Deploy via scp. rclone at `~/bin/rclone`, kepubify at `~/bin/kepubify`. Cron runs daily at 4am.
+`ubuntu1.local`, Ubuntu 24.04. Deploy via scp. rclone at `~/bin/rclone`, kepubify at `~/bin/kepubify`. Cron runs daily at 4am with `--last 7`.
+
+yt-dlp throttle config at `~/.config/yt-dlp/config` on both local and ubuntu1 — verified to load under cron.
